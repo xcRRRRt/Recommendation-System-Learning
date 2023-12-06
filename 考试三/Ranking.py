@@ -33,7 +33,7 @@ class RankingList:
             position = i + 1
             if (position - 1) / (h - 1) > sys.float_info.max_10_exp:    # 如果指数过大，则跳过
                 continue
-            HLU_value += max(observation.actual - observation.avg, 0.0) / (2.0 ** ((position - 1) / (h - 1))) # 计算HLU
+            HLU_value += max(observation.actual - observation.avg, 0.0) / (2.0 ** float((position - 1) / (h - 1))) # 计算HLU
         return HLU_value
     
     def get_NDCG(self, b:int=2)->float:
@@ -42,28 +42,27 @@ class RankingList:
         :param b: 折扣位置
         :return: 单个用户的NDCG值
         """
-        DCG_value = 0.  # 预测排序的DCG
-        max_DCG = 0.    # 真实排序的DCG
+        dcg = 0.  # 预测排序的DCG
+        idcg = 0.    # 真实排序的DCG
         for i, (observation_predict, observation_actual) in enumerate(zip(self.predict_ranking_list, self.actual_ranking_list)):
+            if observation_predict.predict <= 3.5:   # 如果预测值小于平均值，则后面的预测值都小于平均值，直接跳出循环
+                break
             like_predict = 1 if observation_predict.actual >= observation_predict.avg else 0    # 预测值是否是正例
             like_actual = 1 if observation_actual.actual >= observation_actual.avg else 0       # 真实值是否是正例
-            # NDCG
-            if observation_predict.predict < observation_predict.avg:   # 如果预测值小于平均值，则后面的预测值都小于平均值，直接跳出循环
-                break
             position = i + 1    # 位置
             if position <= b:   # 如果位置小于等于折扣位置，则不折扣
-                DCG_value += like_predict
-                max_DCG += like_actual
+                dcg += like_predict
+                idcg += like_actual
             else:   # 如果位置大于折扣位置，则折扣
-                DCG_value += like_predict / math.log(position, b)
-                max_DCG += like_actual / math.log(position, b)
-        return DCG_value / max_DCG if max_DCG != 0 else 0.
+                dcg += like_predict / math.log(position, b)
+                idcg += like_actual / math.log(position, b)
+        return dcg / idcg if idcg != 0 else 0.
     
     def __str__(self) -> str:
-        """打印一下就能看到单个用户的预测排序列表和真实排序列表, 以及单个用户的HLU值和NDCG值"""
-        string = f"user:{self.actual_ranking_list[0].user}\tneighbor:{self.actual_ranking_list[0].neighbors}\tavg:{self.actual_ranking_list[0].avg}\npred movie\tpred rating\t\t\tact rating\t\t\tact movie\tact rating\n"
+        """打印一下就能看到单个用户的预测排序列表和真实排序列表"""
+        string = f"user:{self.actual_ranking_list[0].user}\tneighbor:{self.actual_ranking_list[0].neighbors}\tavg:{self.actual_ranking_list[0].avg}\nHLU:{self.get_HLU()}\tNDCG:{self.get_NDCG()}\npred movie\tpred rating\t\t\tact rating\t\t\tact movie\tact rating\t\tpred rating\n"
         for observation_predict, observation_actual in zip(self.predict_ranking_list, self.actual_ranking_list):
-            string += f"{observation_predict.item}\t\t{observation_predict.predict}\t\t{observation_predict.actual}\t\t\t\t{observation_actual.item}\t\t{observation_actual.actual}\n"
+            string += f"{observation_predict.item}\t\t{observation_predict.predict}\t\t{observation_predict.actual}\t\t\t\t{observation_actual.item}\t\t{observation_actual.actual}\t\t\t{observation_actual.predict}\n"
         return string
 
 
